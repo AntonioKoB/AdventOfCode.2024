@@ -4,14 +4,13 @@ namespace AdventOfCode.Day
 {
     public class Day1 : AdventCalendarDay
     {
-        private bool _isTestMode;
         protected override int Day => 1;
 
         public Day1() { }
 
         public override void Run(bool isTestMode)
         {
-            _isTestMode = isTestMode;
+            base.Run(isTestMode);
 
             var input = GetInput();
             SolvePuzzleOne(input);
@@ -50,7 +49,7 @@ namespace AdventOfCode.Day
 
         protected override Day1Input GetInput()
         {
-            var fileName = GetInputFileName(1, _isTestMode);
+            var fileName = GetInputFileName(1);
             var input = File.ReadAllText(fileName);
             return new Day1Input(input);
         }

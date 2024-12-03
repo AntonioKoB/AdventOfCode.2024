@@ -3,12 +3,17 @@
     public abstract class AdventCalendarDay
     {
         protected abstract int Day { get; }
-        public abstract void Run(bool isTestMode);
+        public virtual void Run(bool isTestMode)
+        {
+            IsTestMode = isTestMode;
+        }
         protected abstract IDayInput GetInput();
 
-        protected string GetInputFileName(int inputNumber, bool isTestMode)
+        protected bool IsTestMode { get; private set; }
+
+        protected string GetInputFileName(int inputNumber)
         {
-            return $"Inputs/{(isTestMode ? "Test" : "")}Day{Day}Input{inputNumber}.txt";
+            return $"Inputs/{(IsTestMode ? "Test" : "")}Day{Day}Input{inputNumber}.txt";
         }
     }
 }
