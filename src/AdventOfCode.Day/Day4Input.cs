@@ -2,6 +2,7 @@
 
 namespace AdventOfCode.Day
 {
+
     public class Day4Input : IDayInput
     {
         public char[,] xWords { get; private set; }
