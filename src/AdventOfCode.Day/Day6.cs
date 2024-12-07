@@ -236,7 +236,7 @@ namespace AdventOfCode.Day
         {
             var stepsDone = 0;
 
-            var stepsToCalculateLoop = IsTestMode ? 10 : 100;
+            var stepsToCalculateLoop = 10;
 
             _historyOfTravel = new List<Tuple<int, int>>();
 
