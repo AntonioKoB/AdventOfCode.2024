@@ -1,5 +1,7 @@
 ﻿using AdventOfCode.Common;
+using System;
 using System.Diagnostics;
+using System.Text;
 
 namespace AdventOfCode.Day
 {
@@ -7,7 +9,7 @@ namespace AdventOfCode.Day
     {
         protected override int Day => 6;
 
-        private List<Tuple<int, int>> _historyOfTravel;
+        public int _obstaclesCount = 0;
 
         public override void Run(bool isTestMode)
         {
@@ -16,7 +18,7 @@ namespace AdventOfCode.Day
             Console.Clear();
 
             SolvePuzzleOne(input);
-            SolvePuzzleTwo();
+            Task.Run(() => SolvePuzzleTwo()).Wait();
         }
 
         private void SolvePuzzleOne(Day6Input input)
@@ -132,90 +134,92 @@ namespace AdventOfCode.Day
             return nextPosition;
         }
 
-        private void SolvePuzzleTwo()
+        private async Task SolvePuzzleTwo()
         {
-            var obstaclesCount = 0; //because we know the first run will not be a loop
+            _obstaclesCount = 0; //because we know the first run will not be a loop
             var currentObstacle = new Tuple<int, int>(-1, -1); // no obstacles
             var input = GetInput(); //refresh the input
 
             var iteration = 1;
-            var currentRow = -1;
-            var stopwatch = new Stopwatch();
 
-            var timeProcessingLastRow = 0;
+            var tasks = new List<Task>();
 
+            var totalIterations = input.Room[0].Length * input.Room.Length; // 16900
+
+            var stopWatch = new Stopwatch();
+            stopWatch.Start();
+            var maxParallelTasks = 20;//IsTestMode ? 1 : 15;
+
+            PrintCalculationRemainingTime(stopWatch, totalIterations, iteration, 0);
             do
             {
-                Console.WriteLine($">>> ITERATION: {iteration++}");
-                if (currentObstacle.Item1 >= 0 && currentObstacle.Item2 >= 0)
+                iteration++;
+
+                tasks.Add(IsLooping(currentObstacle));
+
+                while (tasks.Count >= maxParallelTasks)
                 {
-                    if(currentObstacle.Item1 > currentRow)
-                    {
-                        currentRow = currentObstacle.Item1;
-                        if(stopwatch.IsRunning)
-                        {
-                            stopwatch.Stop();
-                            if(timeProcessingLastRow == 0)
-                                timeProcessingLastRow = (int)stopwatch.ElapsedMilliseconds / 1000;
-                            else
-                                timeProcessingLastRow = (((int)stopwatch.ElapsedMilliseconds / 1000) + timeProcessingLastRow) / 2; //average
-                            stopwatch.Reset();
-                        }
-                        stopwatch.Start();
-                    }
-                    Console.WriteLine($"Current Obstacle: [{currentObstacle.Item1}, {currentObstacle.Item2}]");
-                }
-                var isDebugPoint = false; // currentObstacle.Item1 == 59 && currentObstacle.Item2 == 70;
-                var currentSleep =  isDebugPoint ? 1000 : 0;
-                if (IsLooping(input, currentSleep))
-                {
-                    if (!IsTestMode)
-                        Console.Clear();
-                    Console.WriteLine($"Obstacle good.     Total Obstacles: {obstaclesCount}");
-                    obstaclesCount++;
-                }
-                else
-                {
-                    if (!IsTestMode)
-                        Console.Clear();
-                    Console.WriteLine($"Obstacle NOT good. Total Obstacles: {obstaclesCount}");
+                    await Task.Delay(500);
+                    tasks.RemoveAll(x => x.IsCompleted);
+                    PrintCalculationRemainingTime(stopWatch, totalIterations, iteration, tasks.Count);
                 }
 
-                Console.WriteLine(GetRemainingTime(input.Room[0].Length - currentRow, timeProcessingLastRow));
-
-                currentObstacle = FindNextObstacle(input, currentObstacle);
-                if (currentObstacle.Item1 >= 0 && currentObstacle.Item2 >= 0)
-                {
-                    input = GetInput(); //refresh the input
-                    input.Room[currentObstacle.Item1][currentObstacle.Item2] = '#';
-                }
+                currentObstacle = FindNextObstacle(currentObstacle);
 
             }
             while(currentObstacle.Item1 >=0 && currentObstacle.Item2 >=0); //we will get there eventually
 
-            Console.WriteLine($"Total Obstacles: {obstaclesCount}");
+            await Task.WhenAll(tasks);
+
+            Console.WriteLine($"Total Obstacles: {_obstaclesCount}");
             // save the result into a file
-            File.WriteAllText("Day6Output2.txt", obstaclesCount.ToString());
+            File.WriteAllText("Day6Output2.txt", _obstaclesCount.ToString());
         }
 
-        private string GetRemainingTime(int length, int timeProcessingLastRow)
+        private void PrintCalculationRemainingTime(Stopwatch stopWatch, int totalIterations, int totalIterationsDone, int parallelProcessCount)
         {
-            var progress = "Estimated remaining time: ";
-            if (timeProcessingLastRow == 0)
-                return progress + "[Calculating...]";
+            var remainingIterations = totalIterations - totalIterationsDone;
+            var timeSpentSoFar = stopWatch.Elapsed.TotalSeconds;
+            var percentageDone = (double)totalIterationsDone / totalIterations * 100;
+            var estimatedRemainingTime =
+                TimeSpan.FromSeconds(remainingIterations * timeSpentSoFar / totalIterationsDone);
 
-            var remainingTime = TimeSpan.FromSeconds(length * timeProcessingLastRow);
-            return progress + remainingTime.ToString(@"hh\:mm\:ss") + " hh:mm:ss";
+            int barWidth = 50; // Width of the progress bar
+            var buffer = new StringBuilder();
+
+            buffer.Append("["); // Start of the progress bar
+
+            int progressWidth = (int)(percentageDone * barWidth) / 100;
+            for (int i = 0; i < barWidth; i++)
+            {
+                if (i < progressWidth)
+                    buffer.Append("■");
+                else
+                    buffer.Append(" ");
+            }
+
+            buffer.Append($"] {percentageDone:F2}%"); // End of the progress bar
+
+            Console.Clear(); // Clear the current console line
+
+            Console.Write(buffer.ToString());
+            Console.WriteLine(); // Move to the next line
+            Console.WriteLine($"Estimated remaining time: {estimatedRemainingTime:hh\\:mm\\:ss}");
+            Console.WriteLine($"FOUND SO FAR: {_obstaclesCount}"); // Print the message below the progress bar
+            Console.WriteLine($"Currently processing {parallelProcessCount} parallel processes"); // Print the message below the progress bar
         }
 
-        private Tuple<int, int> FindNextObstacle(Day6Input input, Tuple<int, int> currentObstacle)
+        private Tuple<int, int> FindNextObstacle(Tuple<int, int> currentObstacle)
         {
+            var input = GetInput();
             if (currentObstacle.Item1 == -1 && currentObstacle.Item2 == -1)
-                return new Tuple<int, int>(0, 0);
-
+            {
+                return new (0, 0);
+            }
             var initLocation = GetInitialLocation(input, input.Room[0].Length, input.Room.Length);
 
             input.Room[initLocation.Item2][initLocation.Item1] = '^';
+            input.Room[currentObstacle.Item1][currentObstacle.Item2] = '#';
 
             for (int i = currentObstacle.Item1; i < input.Room[0].Length; i++)
             {
@@ -232,13 +236,20 @@ namespace AdventOfCode.Day
             return new(-1, -1);
         }
 
-        private bool IsLooping(Day6Input input, int sleepAmount = 0)
+        private async Task IsLooping(Tuple<int, int> currentObstacle)
         {
+            var input = GetInput();
+            if (currentObstacle.Item1 >= 0 && currentObstacle.Item2 >= 0)
+                input.Room[currentObstacle.Item1][currentObstacle.Item2] = '#';
+
+            await Task.Delay(100); // to force the thread to release, but not complete the task
             var stepsDone = 0;
 
-            var stepsToCalculateLoop = 10;
+            //var stepsToCalculateLoop = IsTestMode ? 10 : 100;
+            var numberOfCells = input.Room[0].Length * input.Room.Length;
+            var stepsToConsiderItALoop = numberOfCells + (numberOfCells / 2); // 25350
 
-            _historyOfTravel = new List<Tuple<int, int>>();
+            var historyOfTravel = new List<Tuple<int, int>>();
 
             var limitX = input.Room[0].Length;
             var limitY = input.Room.Length;
@@ -279,11 +290,11 @@ namespace AdventOfCode.Day
                 }
             } while (IsInBound(nextStep) && input.Room[nextStep.Item2][nextStep.Item1] == '#');
 
-            input.PrintRoom(IsTestMode, 50 + sleepAmount);
+            input.PrintRoom(IsTestMode, 50);
 
             do
             {
-                _historyOfTravel.Add(currentLocation);
+                historyOfTravel.Add(currentLocation);
                 input.Room[currentLocation.Item2][currentLocation.Item1] = 'X';
                 currentLocation = MoveOneStep(currentLocation, currentDirection, limitX, limitY);
 
@@ -330,37 +341,67 @@ namespace AdventOfCode.Day
                     }
                 } while (IsInBound(nextStep) && input.Room[nextStep.Item2][nextStep.Item1] == '#');
 
-                input.PrintRoom(IsTestMode, 10 + sleepAmount);
-                stepsDone++; // to avoid wasting time on the begining of the algorithm // Non test should at least do 50 steps as it is on X 70
-                if (stepsDone >= stepsToCalculateLoop && IsLoopDetected(_historyOfTravel))
-                    return true;
+                input.PrintRoom(IsTestMode, 50);
+                stepsDone++;
+                //if (stepsDone >= stepsToCalculateLoop &&
+                //    IsLoopDetected((Tuple<int,int>[]) historyOfTravel.ToArray().Clone()))
+                if(stepsDone >= stepsToConsiderItALoop)
+                    _obstaclesCount++;
 
-            } while (IsInBound(currentLocation));
-
-            return false;
+            } while (IsInBound(currentLocation) && stepsDone < stepsToConsiderItALoop);
         }
 
-        private bool IsLoopDetected(IEnumerable<Tuple<int, int>> history)
+        private bool IsLoopDetected(Tuple<int, int>[] history)
         {
-            if (history.Count() <= 1)
-            {
+            var searcheableList = history.Reverse().ToArray();
+
+            // Check if the list has fewer than 2 elements
+            if (searcheableList.Length < 2)
                 return false;
-            }
-            if (history.Count() % 2 != 0)
+
+            var firstElement = searcheableList.First();
+            var candidateOfRepeating = Array.IndexOf(searcheableList, firstElement, 1);
+
+            if (candidateOfRepeating == -1)
+                return false;
+
+            // Check if candidateOfRepeating represents more than half of the list
+            if (candidateOfRepeating > searcheableList.Length / 2)
+                return false;
+
+            candidateOfRepeating++; // because we skip the first
+
+            for (var i = 0; i < candidateOfRepeating; i++)
             {
-                return IsLoopDetected(history.Skip(1));
+                if (!searcheableList[i].Equals(searcheableList[candidateOfRepeating + i]))
+                    return false;
             }
 
-            int mid = history.Count() / 2;
-            for (int i = 0; i < mid; i++)
-            {
-                if (!history.ElementAt(i).Equals(history.ElementAt(i + mid)))
-                {
-                    return IsLoopDetected(history.Skip(2));
-                }
-            }
             return true;
         }
+
+        //private bool IsLoopDetected(Tuple<int, int>[] history)
+        //if (history.Count() <= 1)
+        //{
+        //    return false;
+        //}
+        //if (history.Count() % 2 != 0)
+        //{
+        //    return IsLoopDetected(history.Skip(1).ToArray());
+        //}
+
+        //var list1 = history.Take(history.Count() / 2);
+        //var list2 = history.Skip(history.Count() / 2);
+
+        //if (list1.First().Equals(list2.First()) && list1.Last().Equals(list2.Last()))
+        //    if (list1.SequenceEqual(list2))
+        //        return true;
+
+        //return IsLoopDetected(history.Skip(2).ToArray());
+
+
+
+        //}
 
         private string? _inputCache;
 
