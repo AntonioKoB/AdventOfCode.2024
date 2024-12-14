@@ -48,7 +48,7 @@ namespace AdventOfCode.Common
             }
         }
 
-        public static void PrintProgressBar(this long progress, BigInteger total, int barLength = 50)
+        public static void PrintProgressBar(this long progress, BigInteger total, int barLength = 50, string message = "")
         {
             if (total <= 0) throw new ArgumentException("Total value must be greater than zero.", nameof(total));
 
@@ -60,7 +60,7 @@ namespace AdventOfCode.Common
             progressBar.Append(new string('█', filledLength));
             progressBar.Append(new string('-', barLength - filledLength));
             progressBar.Append(']');
-            progressBar.Append($" {percentage:P1}");
+            progressBar.Append($" {percentage:P1} {message}");
 
             Console.SetCursorPosition(0, Console.CursorTop);
             Console.Write(progressBar.ToString());
