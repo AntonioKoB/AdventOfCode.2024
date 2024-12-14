@@ -1,4 +1,6 @@
-﻿using System.Text.Json;
+﻿using System.Numerics;
+using System.Text;
+using System.Text.Json;
 
 namespace AdventOfCode.Common
 {
@@ -44,6 +46,24 @@ namespace AdventOfCode.Common
             {
                 list[i] = newValue;
             }
+        }
+
+        public static void PrintProgressBar(this long progress, BigInteger total, int barLength = 50)
+        {
+            if (total <= 0) throw new ArgumentException("Total value must be greater than zero.", nameof(total));
+
+            double percentage = (double)progress / (double)total;
+            int filledLength = (int)(barLength * percentage);
+
+            StringBuilder progressBar = new StringBuilder();
+            progressBar.Append('[');
+            progressBar.Append(new string('█', filledLength));
+            progressBar.Append(new string('-', barLength - filledLength));
+            progressBar.Append(']');
+            progressBar.Append($" {percentage:P1}");
+
+            Console.SetCursorPosition(0, Console.CursorTop);
+            Console.Write(progressBar.ToString());
         }
 
 
